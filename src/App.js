@@ -1,46 +1,46 @@
-import { useEffect, useState } from "react";
-import fetchGraphQL from "./fetchGraphQL";
+import { Suspense } from "react";
 import "./App.css";
+import graphql from "babel-plugin-relay/macro";
+import {
+  RelayEnvironmentProvider,
+  loadQuery,
+  usePreloadedQuery,
+} from "react-relay/hooks";
+import RelayEnvironment from "./RelayEnvironment";
 
-function App() {
-  // We'll load the name of a repository, initially setting it to null
-  const [name, setName] = useState(null);
+// Define a query
+const RepositoryNameQuery = graphql`
+  query AppRepositoryNameQuery {
+    repository(owner: "facebook", name: "relay") {
+      name
+    }
+  }
+`;
 
-  // When the component mounts we'll fetch a repository name
-  useEffect(() => {
-    let isMounted = true;
-    fetchGraphQL(`
-      query RepositoryNameQuery {
-        # feel free to change owner/name here
-        repository(owner: "facebook" name: "relay") {
-          name
-        }
-      }
-    `)
-      .then((response) => {
-        // Avoid updating state if the component unmounted before the fetch completes
-        if (!isMounted) {
-          return;
-        }
-        const data = response.data;
-        setName(data.repository.name);
-      })
-      .catch((error) => {
-        console.error(error);
-      });
+const preloadedQuery = loadQuery(RelayEnvironment, RepositoryNameQuery, {
+  //
+});
 
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+function App(props) {
+  const data = usePreloadedQuery(RepositoryNameQuery, props.preloadedQuery);
 
   return (
     <div className="App">
       <header className="App-header">
-        <p>{name !== null ? `Repository: ${name}` : "Loading..."}</p>
+        <p>{data.repository.name}</p>
       </header>
     </div>
   );
 }
 
-export default App;
+function AppRoot(props) {
+  return (
+    <RelayEnvironmentProvider environment={RelayEnvironment}>
+      <Suspense fallback={"Loading..."}>
+        <App preloadedQuery={preloadedQuery} />
+      </Suspense>
+    </RelayEnvironmentProvider>
+  );
+}
+
+export default AppRoot;
